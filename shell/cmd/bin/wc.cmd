@@ -1,2 +1,2 @@
 @echo off
-powershell -NoProfile -Command "Get-Content '%~1' | Measure-Object -Line -Word -Character"
+powershell -NoProfile -Command "Get-Content -LiteralPath ($args[0]) | Measure-Object -Line -Word -Character" -args "%~1"

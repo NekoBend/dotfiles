@@ -1,2 +1,2 @@
 @echo off
-echo %PATH:;=&echo.%
+powershell -NoProfile -Command "($env:PATH -split ';') -ne '' | ForEach-Object { $_ }"

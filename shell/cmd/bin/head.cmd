@@ -1,2 +1,8 @@
 @echo off
-if "%~2"=="" (powershell -NoProfile -Command "Get-Content '%~1' | Select-Object -First 10") else (powershell -NoProfile -Command "Get-Content '%~2' | Select-Object -First %~1")
+setlocal
+if "%~2"=="" (
+    powershell -NoProfile -Command "Get-Content -LiteralPath ($args[0]) | Select-Object -First 10" -args "%~1"
+) else (
+    powershell -NoProfile -Command "Get-Content -LiteralPath ($args[0]) | Select-Object -First ([int]$args[1])" -args "%~2" "%~1"
+)
+endlocal

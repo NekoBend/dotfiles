@@ -142,7 +142,7 @@ function mkfile {
     [Parameter(Mandatory)][string]$Size,
     [Parameter(Mandatory)][string]$Path
   )
-  $bytes = [int64](Invoke-Expression $Size)
+  $bytes = [int64]$Size
   $fs = [System.IO.File]::Create($Path)
   $fs.SetLength($bytes)
   $fs.Close()
