@@ -576,21 +576,34 @@ function va {
 }
 
 # ===== Hardware info (for starship) =====
-try {
-  $cpuName = (Get-CimInstance Win32_Processor -ErrorAction Stop).Name.Trim()
-  # strip verbose prefixes: "13th Gen Intel(R) Core(TM) " → "i9-13900HX"
-  $cpuShort = $cpuName -replace '.*Core\(TM\)\s*' -replace '.*Ryzen\s*', 'Ryzen ' -replace '\s+', ' '
-  if ($cpuName -match 'Intel') { $env:STARSHIP_CPU_INTEL = $cpuShort.Trim() }
-  elseif ($cpuName -match 'AMD') { $env:STARSHIP_CPU_AMD = $cpuShort.Trim() }
-} catch {}
-try {
-  $gpuName = (Get-CimInstance Win32_VideoController -ErrorAction Stop | Select-Object -First 1).Name.Trim()
-  # strip vendor prefix: "NVIDIA GeForce " → "RTX 4090", "Intel(R) " → "UHD Graphics"
-  $gpuShort = $gpuName -replace 'NVIDIA\s+GeForce\s*' -replace 'AMD\s+' -replace 'Intel\(R\)\s*' -replace '\s+', ' '
-  if ($gpuName -match 'NVIDIA') { $env:STARSHIP_GPU_NVIDIA = $gpuShort.Trim() }
-  elseif ($gpuName -match 'AMD|Radeon') { $env:STARSHIP_GPU_AMD = $gpuShort.Trim() }
-  elseif ($gpuName -match 'Intel') { $env:STARSHIP_GPU_INTEL = $gpuShort.Trim() }
-} catch {}
+# Cached to avoid slow CIM queries (~1s) on every shell startup.
+# Cache auto-refreshes after 30 days or when the file is deleted.
+$__hwCache = Join-Path $env:LOCALAPPDATA 'starship_hw_cache.json'
+$__hwStale = (Test-Path $__hwCache) -and ((Get-Item $__hwCache).LastWriteTime -lt (Get-Date).AddDays(-30))
+
+if (-not (Test-Path $__hwCache) -or $__hwStale) {
+  try {
+    $cpuName = (Get-CimInstance Win32_Processor -ErrorAction Stop).Name.Trim()
+    $gpuName = (Get-CimInstance Win32_VideoController -ErrorAction Stop | Select-Object -First 1).Name.Trim()
+    @{ cpu = $cpuName; gpu = $gpuName } | ConvertTo-Json | Set-Content $__hwCache -Encoding UTF8
+  } catch {}
+}
+
+if (Test-Path $__hwCache) {
+  try {
+    $hw = Get-Content $__hwCache -Raw | ConvertFrom-Json
+    # strip verbose prefixes: "13th Gen Intel(R) Core(TM) " → "i9-13900HX"
+    $cpuShort = $hw.cpu -replace '.*Core\(TM\)\s*' -replace '.*Ryzen\s*', 'Ryzen ' -replace '\s+', ' '
+    if ($hw.cpu -match 'Intel') { $env:STARSHIP_CPU_INTEL = $cpuShort.Trim() }
+    elseif ($hw.cpu -match 'AMD') { $env:STARSHIP_CPU_AMD = $cpuShort.Trim() }
+    # strip vendor prefix: "NVIDIA GeForce " → "RTX 4090", "Intel(R) " → "UHD Graphics"
+    $gpuShort = $hw.gpu -replace 'NVIDIA\s+GeForce\s*' -replace 'AMD\s+' -replace 'Intel\(R\)\s*' -replace '\s+', ' '
+    if ($hw.gpu -match 'NVIDIA') { $env:STARSHIP_GPU_NVIDIA = $gpuShort.Trim() }
+    elseif ($hw.gpu -match 'AMD|Radeon') { $env:STARSHIP_GPU_AMD = $gpuShort.Trim() }
+    elseif ($hw.gpu -match 'Intel') { $env:STARSHIP_GPU_INTEL = $gpuShort.Trim() }
+  } catch {}
+}
+Remove-Variable __hwCache, __hwStale -ErrorAction SilentlyContinue
 
 # ===== Starship =====
 if (Get-Command starship -ErrorAction SilentlyContinue) {
